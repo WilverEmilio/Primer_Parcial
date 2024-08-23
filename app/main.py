@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from . import crud
 from .conexion import SessionLocal, engine
 from .schemas import EmpleadoBase, ProyectoBase, AsignacionBase, Empleado, Proyecto, Asignacion
-from .models import Base
+from .models import Base, Proyectos, Empleados
 from datetime import datetime, timedelta
 from fastapi.responses import JSONResponse
 
@@ -96,29 +96,27 @@ def asignacion_obtener(id_asignacion: int, db: Session = Depends(get_db)):
 
 @app.post('/asignacionesCrear/', response_model=Asignacion)
 def asignacion_crear(asignacion: AsignacionBase, db: Session = Depends(get_db)):
-    # Validar que la fecha de inicio no sea mayor que la fecha de fin
-    if asignacion.fecha_inicio > asignacion.fecha_fin:
-        raise HTTPException(status_code=400, detail="La fecha de inicio no puede ser mayor a la fecha de fin")
+    # Asegúrate de que Proyecto esté importado correctamente
+    proyecto = db.query(Proyectos).filter(Proyectos.id_proyecto == asignacion.id_proyecto).first()
     
-    # Verificar si el empleado existe
-    empleado = db.query(Empleado).filter(Empleado.id_empleado == asignacion.id_empleado).first()
-    if not empleado:
-        raise HTTPException(status_code=400, detail="El empleado no existe")
-    
-    # Verificar si el proyecto existe
-    proyecto = db.query(Proyecto).filter(Proyecto.id_proyecto == asignacion.id_proyecto).first()
     if not proyecto:
         raise HTTPException(status_code=400, detail="El proyecto no existe")
     
-    # Verificar si el proyecto ya tiene un empleado asignado
-    asignacion_existente = db.query(Asignacion).filter(
-        Asignacion.id_proyecto == asignacion.id_proyecto,
-        Asignacion.fecha_fin >= asignacion.fecha_inicio  # Asumimos que el proyecto tiene asignación activa si las fechas se solapan
-    ).first()
-
-    if asignacion_existente:
-        raise HTTPException(status_code=400, detail="El proyecto ya tiene un empleado asignado durante el período especificado")
+    # Validar que la fecha de inicio del proyecto no sea mayor que la fecha de fin
+    if proyecto.fecha_inicio > proyecto.fecha_fin:
+        raise HTTPException(status_code=400, detail="La fecha de inicio del proyecto no puede ser mayor a la fecha de fin")
+    
+    # Verificar si el empleado existe
+    empleado = db.query(Empleados).filter(Empleados.id_empleado == asignacion.id_empleado).first()
+    if not empleado:
+        raise HTTPException(status_code=400, detail="El empleado no existe")
     
     # Crear la asignación si todas las validaciones pasan
     return crud.create_asignacion(db, asignacion)
+
+
+@app.get('/alertas/', response_model=List[Proyecto])
+def obtener_proyectos_con_alerta(db: Session = Depends(get_db)):
+    proyectos = crud.get_proyectos_con_alerta(db)
+    return proyectos
 

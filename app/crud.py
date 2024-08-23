@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 from .models import Empleados, Proyectos, Asignaciones
 from .schemas import EmpleadoBase, ProyectoBase, AsignacionBase
+from datetime import datetime, timedelta
 
 #CRUD de empleados
 def get_empleado(db: Session):
@@ -102,3 +103,18 @@ def delete_asignacion(db: Session, id_asignacion: int):
         db.delete(db_asignacion)
         db.commit()
     return db_asignacion
+
+def get_proyectos_con_alerta(db: Session):
+    # Calcula la fecha límite para las alertas
+    fecha_actual = datetime.now().date()
+    fecha_limite = fecha_actual + timedelta(days=7)
+    
+    print(f"Fecha actual: {fecha_actual}")
+    print(f"Fecha límite: {fecha_limite}")  
+    
+    # Filtra los proyectos que están dentro del rango de alerta
+    proyectos = db.query(Proyectos).filter(Proyectos.fecha_fin <= fecha_limite, Proyectos.fecha_fin >= fecha_actual).all()
+    
+    print(f"Proyectos encontrados: {proyectos}")
+    
+    return proyectos
